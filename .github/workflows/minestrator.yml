@@ -1,5 +1,24 @@
-run: |
-          # Nettoyage de l'URL Supabase au cas où il y a un slash en trop à la fin
+name: Check Minestrator Commands
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-command:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch and Execute Pending Commands
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MINESTRATOR_TOKEN: ${{ secrets.MINESTRATOR_TOKEN }}
+          SERVER_ID: ${{ secrets.SERVER_ID }}
+        run: |
           CLEAN_SUPABASE_URL=$(echo "${SUPABASE_URL}" | sed 's/*$//')
 
           RESPONSE=$(curl -s "${CLEAN_SUPABASE_URL}/rest/v1/server_commands?status=eq.pending&order=created_at.asc&limit=1" \
@@ -18,7 +37,6 @@ run: |
 
           echo "Exécution de l'action : $ACTION pour la commande ID: $COMMAND_ID"
 
-          # Appel API Minestrator v1
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             "https://api.minestrator.com/v1/server/${SERVER_ID}/action/${ACTION}" \
             -H "Authorization: Bearer ${MINESTRATOR_TOKEN}")
