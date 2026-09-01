@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serveur Minecraft - Panel Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #121212; color: white; margin: 0; padding: 20px; }
+    .card { background: #1e1e1e; max-width: 500px; margin: 40px auto; padding: 25px; border-radius: 8px; border: 1px solid #333; }
+    input { display: block; width: 100%; padding: 12px; margin: 10px 0; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 4px; }
+    button { padding: 12px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-right: 5px; margin-top: 10px; }
+    .btn-green { background: #2e7d32; color: white; }
+    .btn-red { background: #c62828; color: white; }
+    .btn-orange { background: #f57c00; color: white; }
+    .hidden { display: none; }
+    #status-msg { margin-top: 15px; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Panneau de Gestion Serveur</h2>
+
+    <!-- Formulaire de Connexion -->
+    <div id="auth-box">
+      <input type="email" id="email" placeholder="Email (ex: admin@tonsite.com)">
+      <input type="password" id="password" placeholder="Mot de passe">
+      <button class="btn-green" onclick="login()">Se connecter</button>
+    </div>
+
+    <!-- Interface d'Administration (Masquée par défaut) -->
+    <div id="admin-panel" class="hidden">
+      <p>Connecté en tant que <b id="user-email"></b></p>
+      <button class="btn-green" onclick="controlServer('start')">Démarrer</button>
+      <button class="btn-red" onclick="controlServer('stop')">Arrêter</button>
+      <button class="btn-orange" onclick="controlServer('restart')">Redémarrer</button>
+      <br><br>
+      <button style="background: #555; color: white;" onclick="logout()">Déconnexion</button>
+    </div>
+
+    <p id="status-msg"></p>
+  </div>
+
+  <script>
+    // ⚠️ Remplace avec tes informations Supabase
+    const SUPABASE_URL = "https://bpvcdtuvwbliaqxxmodq.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_bBnDkvUYr1uX70YcCm9WjQ_lfO65iHt";
+    
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Vérifier la session active
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) showPanel(session.user.email);
+    });
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const msg = document.getElementById('status-msg');
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        msg.style.color = "#f44336";
+        msg.textContent = error.message;
+      } else {
+        showPanel(data.user.email);
+      }
+    }
+
+    async function logout() {
+      await supabase.auth.signOut();
+      document.getElementById('auth-box').classList.remove('hidden');
+      document.getElementById('admin-panel').classList.add('hidden');
+      document.getElementById('status-msg').textContent = "";
+    }
+
+    function showPanel(email) {
+      document.getElementById('user-email').textContent = email;
+      document.getElementById('auth-box').classList.add('hidden');
+      document.getElementById('admin-panel').classList.remove('hidden');
+      document.getElementById('status-msg').textContent = "";
+    }
+
+    async function controlServer(action) {
+      const msg = document.getElementById('status-msg');
+      msg.style.color = "white";
+      msg.textContent = "Commande en cours d'envoi...";
+
+      const { data: { session } } = await supabase.auth.getSession();
+
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/minestrator-control`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ action })
+        });
+
+        const resData = await response.json();
+
+        if (response.ok) {
+          msg.style.color = "#4caf50";
+          msg.textContent = `Succès : Ordre de "${action}" transmis !`;
+        } else {
+          msg.style.color = "#f44336";
+          msg.textContent = resData.error || "Une erreur est survenue.";
+        }
+      } catch (err) {
+        msg.style.color = "#f44336";
+        msg.textContent = "Erreur de connexion avec l'API.";
+      }
+    }
+  </script>
+</body>
+</html>
