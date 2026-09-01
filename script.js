@@ -1,15 +1,13 @@
-// ==========================================
 // 1. CONFIGURATION DE SUPABASE
 // ==========================================
-// ⚠️ Remplace ces valeurs par tes identifiants trouvables dans Supabase (Settings > API)
 const SUPABASE_URL = "https://bpvcdtuvwbliaqxxmodq.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_bBnDkvUYr1uX70YcCm9WjQ_lfO65iHt";
 
-// Initialisation du client Supabase
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// On renomme la variable pour éviter le conflit avec la bibliothèque
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
-// 2. ÉLÉMENTS DU DOM (HTML)
+// 2. ÉLÉMENTS DU DOM
 // ==========================================
 const authBox = document.getElementById('auth-box');
 const adminPanel = document.getElementById('admin-panel');
@@ -19,18 +17,15 @@ const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
 
 // ==========================================
-// 3. GESTION DE LA SESSION & AUTHENTIFICATION
+// 3. AUTHENTIFICATION
 // ==========================================
-
-// Vérifier si un utilisateur est déjà connecté au chargement de la page
 document.addEventListener('DOMContentLoaded', async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
     showAdminPanel(session.user.email);
   }
 });
 
-// Fonction de connexion
 async function login() {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
@@ -42,7 +37,7 @@ async function login() {
 
   showMessage("Connexion en cours...", "white");
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
     email: email,
     password: password
   });
@@ -55,9 +50,8 @@ async function login() {
   }
 }
 
-// Fonction de déconnexion
 async function logout() {
-  await supabase.auth.signOut();
+  await supabaseClient.auth.signOut();
   authBox.classList.remove('hidden');
   adminPanel.classList.add('hidden');
   emailInput.value = '';
@@ -65,7 +59,6 @@ async function logout() {
   showMessage("Vous avez été déconnecté.", "white");
 }
 
-// Afficher le panneau administration
 function showAdminPanel(email) {
   userEmailSpan.textContent = email;
   authBox.classList.add('hidden');
@@ -73,15 +66,12 @@ function showAdminPanel(email) {
 }
 
 // ==========================================
-// 4. GESTION DES COMMANDES SERVEUR
+// 4. COMMANDES SERVEUR
 // ==========================================
-
-// Envoyer la demande d'action (start, stop, restart) dans Supabase
 async function requestAction(actionName) {
   showMessage(`Demande de "${actionName}" en cours d'envoi...`, "white");
 
-  // Récupérer la session actuelle pour vérifier qu'on est bien connecté
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
 
   if (!session) {
     showMessage("Session expirée. Veuillez vous reconnecter.", "red");
@@ -89,8 +79,7 @@ async function requestAction(actionName) {
     return;
   }
 
-  // Insertion de la commande dans la table 'server_commands'
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from('server_commands')
     .insert([
       { action: actionName, status: 'pending' }
@@ -99,11 +88,10 @@ async function requestAction(actionName) {
   if (error) {
     showMessage("Erreur lors de l'envoi : " + error.message, "red");
   } else {
-    showMessage(`Ordre "${actionName}" transmis ! GitHub Actions va l'exécuter dans un instant.`, "green");
+    showMessage(`Ordre "${actionName}" transmis à Supabase !`, "green");
   }
 }
 
-// Helper pour afficher les messages de statut avec couleur
 function showMessage(message, color) {
   statusMsg.style.color = color === "red" ? "#f44336" : (color === "green" ? "#4caf50" : "#ffffff");
   statusMsg.textContent = message;
