@@ -1,19 +1,39 @@
-name: Controle Minestrator
+name: Check Minestrator Commands
 
 on:
-  repository_dispatch:
-    types: [server-action]
+  schedule:
+    - cron: '*/5 * * * *' # S'exécute toutes les 5 minutes
+  workflow_dispatch: # Permet aussi de lancer manuellement depuis GitHub
 
 jobs:
-  control:
+  check-and-run:
     runs-on: ubuntu-latest
     steps:
-      - name: Executer l'action sur Minestrator
+      - name: Check pending commands and call Minestrator
         run: |
-          ACTION="${{ github.event.client_payload.action }}"
-          echo "Execution de l'action : $ACTION"
-          
-          curl -X POST "https://api.minestrator.com/v1/server/$ACTION" \
-            -H "Authorization: Bearer ${{ secrets.MINESTRATOR_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"server_id\": \"${{ secrets.SERVER_ID }}\"}"
+          # 1. Récupérer la dernière commande en attente dans Supabase
+          RESPONSE=$(curl -s "${{ secrets.SUPABASE_URL }}/rest/v1/server_commands?status=eq.pending&select=*&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+
+          COMMAND_ID=$(echo $RESPONSE | jq -r '.[0].id // empty')
+          ACTION=$(echo $RESPONSE | jq -r '.[0].action // empty')
+
+          if [ -n "$ACTION" ] && [ "$ACTION" != "null" ]; then
+            echo "Commande trouvée : $ACTION"
+
+            # 2. Exécuter la commande sur Minestrator avec tes secrets
+            curl -X POST "https://api.minestrator.com/v1/server/$ACTION" \
+              -H "Authorization: Bearer ${{ secrets.MINESTRATOR_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"server_id\": \"${{ secrets.SERVER_ID }}\"}"
+
+            # 3. Marquer la commande comme exécutée
+            curl -X PATCH "${{ secrets.SUPABASE_URL }}/rest/v1/server_commands?id=eq.$COMMAND_ID" \
+              -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d '{"status": "executed"}'
+          else
+            echo "Aucune commande en attente."
+          fi
