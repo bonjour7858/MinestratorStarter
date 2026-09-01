@@ -10,7 +10,6 @@
     button { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 5px 2px; }
     .btn-green { background: #2e7d32; color: white; }
     .btn-red { background: #c62828; color: white; }
-    .btn-orange { background: #f57c00; color: white; }
     .hidden { display: none; }
   </style>
 </head>
@@ -19,19 +18,17 @@
   <div class="card">
     <h2>Panneau Admin Minecraft</h2>
 
-    <!-- Boîte de Connexion -->
     <div id="auth-box">
-      <input type="email" id="email" placeholder="Email (ex: admin@tonsite.com)">
+      <input type="email" id="email" placeholder="Email Admin">
       <input type="password" id="password" placeholder="Mot de passe">
       <button class="btn-green" onclick="login()">Se connecter</button>
     </div>
 
-    <!-- Interface d'Administration -->
     <div id="admin-panel" class="hidden">
       <p>Connecté : <b id="user-email"></b></p>
       <button class="btn-green" onclick="requestAction('start')">Démarrer</button>
       <button class="btn-red" onclick="requestAction('stop')">Arrêter</button>
-      <button class="btn-orange" onclick="requestAction('restart')">Redémarrer</button>
+      <button class="btn-red" style="background:#f57c00;" onclick="requestAction('restart')">Redémarrer</button>
       <br><br>
       <button style="background: #555; color: white;" onclick="logout()">Déconnexion</button>
     </div>
@@ -39,10 +36,9 @@
     <p id="status-msg"></p>
   </div>
 
- <!-- 1. Le SDK Supabase en premier -->
+  <!-- Charger le SDK Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- 2. Ton script.js ensuite -->
+  <!-- Charger ton fichier script.js -->
   <script src="script.js"></script>
-</body>
 </body>
 </html>
