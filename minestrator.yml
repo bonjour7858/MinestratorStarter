@@ -1,0 +1,19 @@
+name: Controle Minestrator
+
+on:
+  repository_dispatch:
+    types: [server-action]
+
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executer l'action sur Minestrator
+        run: |
+          ACTION="${{ github.event.client_payload.action }}"
+          echo "Execution de l'action : $ACTION"
+          
+          curl -X POST "https://api.minestrator.com/v1/server/$ACTION" \
+            -H "Authorization: Bearer ${{ secrets.MINESTRATOR_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"server_id\": \"${{ secrets.SERVER_ID }}\"}"
