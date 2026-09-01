@@ -5,15 +5,13 @@
   <title>Serveur Minecraft - Panel Admin</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #121212; color: white; padding: 20px; }
+    body { font-family: Arial, sans-serif; background: #121212; color: white; padding: 20px; }
     .card { background: #1e1e1e; max-width: 450px; margin: 40px auto; padding: 25px; border-radius: 8px; border: 1px solid #333; }
     input { width: 100%; padding: 10px; margin: 8px 0; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; }
     button { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 5px 2px; }
     .btn-green { background: #2e7d32; color: white; }
     .btn-red { background: #c62828; color: white; }
-    .btn-orange { background: #f57c00; color: white; }
     .hidden { display: none; }
-    #status-msg { margin-top: 15px; }
   </style>
 </head>
 <body>
@@ -21,101 +19,54 @@
   <div class="card">
     <h2>Panneau Admin Minecraft</h2>
 
-    <!-- Formulaire de Connexion Supabase -->
     <div id="auth-box">
       <input type="email" id="email" placeholder="Email Admin">
       <input type="password" id="password" placeholder="Mot de passe">
       <button class="btn-green" onclick="login()">Se connecter</button>
     </div>
 
-    <!-- Interface d'Administration -->
     <div id="admin-panel" class="hidden">
       <p>Connecté : <b id="user-email"></b></p>
-      <button class="btn-green" onclick="triggerGitHubAction('start')">Démarrer</button>
-      <button class="btn-red" onclick="triggerGitHubAction('stop')">Arrêter</button>
-      <button class="btn-orange" onclick="triggerGitHubAction('restart')">Redémarrer</button>
-      <br><br>
-      <button style="background: #555; color: white;" onclick="logout()">Déconnexion</button>
+      <button class="btn-green" onclick="requestAction('start')">Démarrer</button>
+      <button class="btn-red" onclick="requestAction('stop')">Arrêter</button>
+      <button class="btn-red" style="background:#f57c00;" onclick="requestAction('restart')">Redémarrer</button>
     </div>
 
     <p id="status-msg"></p>
   </div>
 
   <script>
-    // 1. Config Supabase
-    const SUPABASE_URL = "bpvcdtuvwbliaqxxmodq";
+    const SUPABASE_URL = "https://bpvcdtuvwbliaqxxmodq.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_bBnDkvUYr1uX70YcCm9WjQ_lfO65iHt";
     const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // 2. Config GitHub
-    const GITHUB_USERNAME = "TON_PSEUDO_GITHUB";
-    const GITHUB_REPO = "NOM_DE_TON_REPO";
-    const GITHUB_PAT = "TON_GITHUB_PERSONAL_ACCESS_TOKEN"; 
-
-    // Vérifier si déjà connecté
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) showPanel(session.user.email);
-    });
 
     async function login() {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const msg = document.getElementById('status-msg');
-
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (error) {
-        msg.style.color = "#f44336";
-        msg.textContent = error.message;
-      } else {
-        showPanel(data.user.email);
+      if (error) alert(error.message);
+      else {
+        document.getElementById('auth-box').classList.add('hidden');
+        document.getElementById('admin-panel').classList.remove('hidden');
+        document.getElementById('user-email').textContent = data.user.email;
       }
     }
 
-    async function logout() {
-      await supabase.auth.signOut();
-      document.getElementById('auth-box').classList.remove('hidden');
-      document.getElementById('admin-panel').classList.add('hidden');
-      document.getElementById('status-msg').textContent = "";
-    }
-
-    function showPanel(email) {
-      document.getElementById('user-email').textContent = email;
-      document.getElementById('auth-box').classList.add('hidden');
-      document.getElementById('admin-panel').classList.remove('hidden');
-      document.getElementById('status-msg').textContent = "";
-    }
-
-    // Déclencher la GitHub Action
-    async function triggerGitHubAction(actionName) {
+    async function requestAction(actionName) {
       const msg = document.getElementById('status-msg');
-      msg.style.color = "white";
-      msg.textContent = "Ordre envoyé à GitHub Actions...";
+      msg.textContent = "Demande transmise, le serveur va s'exécuter...";
 
-      try {
-        const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/dispatches`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `token ${GITHUB_PAT}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            event_type: 'server-action',
-            client_payload: { action: actionName }
-          })
-        });
+      const { error } = await supabase
+        .from('server_commands')
+        .insert([{ action: actionName }]);
 
-        if (response.ok) {
-          msg.style.color = "#4caf50";
-          msg.textContent = `Succès ! L'action "${actionName}" est en cours d'exécution.`;
-        } else {
-          msg.style.color = "#f44336";
-          msg.textContent = "Erreur lors de l'envoi de la commande à GitHub.";
-        }
-      } catch (err) {
-        msg.style.color = "#f44336";
-        msg.textContent = "Erreur réseau.";
+      if (error) {
+        msg.style.color = "red";
+        msg.textContent = "Erreur : " + error.message;
+      } else {
+        msg.style.color = "green";
+        msg.textContent = `Demande de "${actionName}" envoyée avec succès !`;
       }
     }
   </script>
