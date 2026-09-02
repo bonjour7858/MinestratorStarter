@@ -1,50 +1,29 @@
 name: Check Minestrator Commands
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
   run-command:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Fetch and Execute Pending Commands
+      - name: Debug Secrets and Connection
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           MINESTRATOR_TOKEN: ${{ secrets.MINESTRATOR_TOKEN }}
           SERVER_ID: ${{ secrets.SERVER_ID }}
         run: |
-          echo "URL ciblée : ${SUPABASE_URL}"
+          echo "=== VÉRIFICATION DES VARIABLES ==="
+          echo "SUPABASE_URL vaut : '$SUPABASE_URL'"
+          echo "SERVER_ID vaut    : '$SERVER_ID'"
 
-          RESPONSE=$(curl -s -S "${SUPABASE_URL}/rest/v1/server_commands?status=eq.pending&order=created_at.asc&limit=1" \
-            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
-
-          echo "Commandes trouvées : $RESPONSE"
-
-          COMMAND_ID=$(echo "$RESPONSE" | jq -r '.[0].id // empty')
-          ACTION=$(echo "$RESPONSE" | jq -r '.[0].action // empty')
-
-          if [ -z "$COMMAND_ID" ] || [ "$COMMAND_ID" = "null" ]; then
-            echo "Aucune commande en attente."
-            exit 0
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "ERREUR : SUPABASE_URL est vide !"
+            exit 1
           fi
 
-          echo "Exécution de l'action : $ACTION pour la commande ID: $COMMAND_ID"
-
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            "https://api.minestrator.com/v1/server/${SERVER_ID}/action/${ACTION}" \
-            -H "Authorization: Bearer ${MINESTRATOR_TOKEN}")
-
-          echo "Réponse API Minestrator (Code HTTP): $HTTP_CODE"
-
-          curl -s -X PATCH "${SUPABASE_URL}/rest/v1/server_commands?id=eq.${COMMAND_ID}" \
+          echo "=== TEST DE CONNEXION SUPABASE ==="
+          curl -v "${SUPABASE_URL}/rest/v1/server_commands?select=count" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Content-Type: application/json" \
-            -d '{"status": "completed"}'
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}"
