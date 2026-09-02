@@ -19,18 +19,19 @@ jobs:
           MINESTRATOR_TOKEN: ${{ secrets.MINESTRATOR_TOKEN }}
           SERVER_ID: ${{ secrets.SERVER_ID }}
         run: |
-          CLEAN_SUPABASE_URL=$(echo "${SUPABASE_URL}" | sed 's/*$//')
+          # Supprime un éventuel slash final dans l'URL Supabase
+          CLEAN_URL=$(echo "${SUPABASE_URL}" | sed 's/\/$//')
 
-          RESPONSE=$(curl -s "${CLEAN_SUPABASE_URL}/rest/v1/server_commands?status=eq.pending&order=created_at.asc&limit=1" \
+          RESPONSE=$(curl -s "${CLEAN_URL}/rest/v1/server_commands?status=eq.pending&order=created_at.asc&limit=1" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
 
           echo "Commandes trouvées : $RESPONSE"
 
-          COMMAND_ID=$(echo $RESPONSE | jq -r '.[0].id // empty')
-          ACTION=$(echo $RESPONSE | jq -r '.[0].action // empty')
+          COMMAND_ID=$(echo "$RESPONSE" | jq -r '.[0].id // empty')
+          ACTION=$(echo "$RESPONSE" | jq -r '.[0].action // empty')
 
-          if [ -z "$COMMAND_ID" ] || [ "null" = "$COMMAND_ID" ]; then
+          if [ -z "$COMMAND_ID" ] || [ "$COMMAND_ID" = "null" ]; then
             echo "Aucune commande en attente."
             exit 0
           fi
@@ -43,7 +44,7 @@ jobs:
 
           echo "Réponse API Minestrator (Code HTTP): $HTTP_CODE"
 
-          curl -s -X PATCH "${CLEAN_SUPABASE_URL}/rest/v1/server_commands?id=eq.${COMMAND_ID}" \
+          curl -s -X PATCH "${CLEAN_URL}/rest/v1/server_commands?id=eq.${COMMAND_ID}" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
