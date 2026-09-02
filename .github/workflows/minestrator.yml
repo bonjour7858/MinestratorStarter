@@ -1,8 +1,6 @@
 name: Check Minestrator Commands
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -19,35 +17,36 @@ jobs:
           MINESTRATOR_TOKEN: ${{ secrets.MINESTRATOR_TOKEN }}
           SERVER_ID: ${{ secrets.SERVER_ID }}
         run: |
-          # 1. Lecture de la commande Supabase
-          RESPONSE=$(curl -s -S "${SUPABASE_URL}/rest/v1/server_commands?status=eq.pending&order=created_at.asc&limit=1" \
-            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
+          echo "--- ETAPE 1 : RECUPERATION SUPABASE ---"
+          # Nettoyage strict des variables dans le shell
+          S_URL=$(echo "${SUPABASE_URL}" | tr -d '\r\n')
+          S_KEY=$(echo "${SUPABASE_SERVICE_ROLE_KEY}" | tr -d '\r\n')
+          M_TOKEN=$(echo "${MINESTRATOR_TOKEN}" | tr -d '\r\n')
+          M_ID=$(echo "${SERVER_ID}" | tr -d '\r\n')
 
-          echo "Réponse Supabase : $RESPONSE"
+          RESPONSE=$(curl -s "${S_URL}/rest/v1/server_commands?status=eq.pending&order=created_at.asc&limit=1" \
+            -H "apikey: ${S_KEY}" \
+            -H "Authorization: Bearer ${S_KEY}") || echo "ERREUR_CURL_SUPABASE"
 
-          COMMAND_ID=$(echo "$RESPONSE" | jq -r '.[0].id // empty')
-          ACTION=$(echo "$RESPONSE" | jq -r '.[0].action // empty')
+          echo "Réponse : $RESPONSE"
+
+          COMMAND_ID=$(echo "$RESPONSE" | jq -r '.[0].id // empty' 2>/dev/null)
+          ACTION=$(echo "$RESPONSE" | jq -r '.[0].action // empty' 2>/dev/null)
 
           if [ -z "$COMMAND_ID" ] || [ "$COMMAND_ID" = "null" ]; then
             echo "Aucune commande en attente."
             exit 0
           fi
 
-          echo "Commande trouvée : $ACTION (ID: $COMMAND_ID)"
+          echo "--- ETAPE 2 : ENVOI MINESTRATOR ---"
+          echo "Action: $ACTION | Server ID: $M_ID"
 
-          # 2. Appel à Minestrator avec affichage des erreurs
-          echo "Envoi à Minestrator pour le serveur ID: '$SERVER_ID'..."
-          
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            "https://api.minestrator.com/v1/server/${SERVER_ID}/action/${ACTION}" \
-            -H "Authorization: Bearer ${MINESTRATOR_TOKEN}" || echo "CURL_ERROR")
+          curl -i -X POST "https://api.minestrator.com/v1/server/${M_ID}/action/${ACTION}" \
+            -H "Authorization: Bearer ${M_TOKEN}" || echo "ERREUR_CURL_MINESTRATOR"
 
-          echo "Code HTTP Minestrator : $HTTP_CODE"
-
-          # 3. Mise à jour du statut dans Supabase
-          curl -s -X PATCH "${SUPABASE_URL}/rest/v1/server_commands?id=eq.${COMMAND_ID}" \
-            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+          echo "--- ETAPE 3 : MISE A JOUR SUPABASE ---"
+          curl -s -X PATCH "${S_URL}/rest/v1/server_commands?id=eq.${COMMAND_ID}" \
+            -H "apikey: ${S_KEY}" \
+            -H "Authorization: Bearer ${S_KEY}" \
             -H "Content-Type: application/json" \
             -d '{"status": "completed"}'
