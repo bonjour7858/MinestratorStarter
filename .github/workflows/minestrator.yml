@@ -19,10 +19,9 @@ jobs:
           MINESTRATOR_TOKEN: ${{ secrets.MINESTRATOR_TOKEN }}
           SERVER_ID: ${{ secrets.SERVER_ID }}
         run: |
-          # Supprime un éventuel slash final dans l'URL Supabase
-          CLEAN_URL=$(echo "${SUPABASE_URL}" | sed 's/\/$//')
+          echo "URL ciblée : ${SUPABASE_URL}"
 
-          RESPONSE=$(curl -s "${CLEAN_URL}/rest/v1/server_commands?status=eq.pending&order=created_at.asc&limit=1" \
+          RESPONSE=$(curl -s -S "${SUPABASE_URL}/rest/v1/server_commands?status=eq.pending&order=created_at.asc&limit=1" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
 
@@ -44,7 +43,7 @@ jobs:
 
           echo "Réponse API Minestrator (Code HTTP): $HTTP_CODE"
 
-          curl -s -X PATCH "${CLEAN_URL}/rest/v1/server_commands?id=eq.${COMMAND_ID}" \
+          curl -s -X PATCH "${SUPABASE_URL}/rest/v1/server_commands?id=eq.${COMMAND_ID}" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
